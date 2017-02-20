@@ -26,7 +26,6 @@ dig_input *NEW_dig_input(void) {
 
 	return me;
 }
-
 // CREATES A NEW INSTANCE OF A DIG INPUT ARRAY OBJECT (CALL THIS BEFORE INI)
 dig_input_array *NEW_dig_input_array(uint8_t ini_size) {
 
@@ -57,7 +56,48 @@ dig_input_array *NEW_dig_input_array(uint8_t ini_size) {
 
 	return me;
 }
+// THIS FUNCTION SETS UP THE PIN AS A DIGITAL INPUT AND SETS THE PURPOSE OF THE SOFTWARE REPRESENTATION OF THIS PIN ACCORDINGLY
+void dig_input_initialize(dig_input *me, uint8_t pin_number) {
 
+	connect_PIN(&physical_pins[pin_number], &me->connected);
+
+	assign_purpose_PIN(&physical_pins[pin_number], _INPUT);
+
+	*physical_pins[pin_number].registers->r_ddr &= ~(1 << physical_pins[pin_number].channel);		// set pin as input
+	*physical_pins[pin_number].registers->r_port |= (1 << physical_pins[pin_number].channel);		// enable pull up resistor
+
+	physical_pins[pin_number].prev_state = status_dig_input(me);
+
+	me->pin = &physical_pins[pin_number];
+
+	return;
+}
+// FREES MEMEORY ALLOCATED FOR DIG_INPUT (PREVENTS LEAKS)
+void dig_input_destructor(dig_input *me) {
+
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		free(me->pin);
+		free(me);
+	}
+
+	return;
+}
+// FREES MEMEORY ALLOCATED FOR DIG INPUT ARRAY (PREVENTS LEAKS)
+void dig_input_array_destructor(dig_input_array *me) {
+
+	int8_t i;
+
+	for (i = 0; i < me->num_elements; i++)
+		dig_input_destructor(me->elements[i]);
+
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		free(me->elements);
+		free(me);
+	}
+
+	return;
+}
+// CREATES A NEW INSTANCE OF A DIG OUTPUT OBJECT (CALL THIS BEFORE INI)
 dig_output *NEW_dig_output(void) {
 
 	dig_output *me;
@@ -76,7 +116,7 @@ dig_output *NEW_dig_output(void) {
 
 	return me;
 }
-
+// CREATES A NEW INSTANCE OF A DIG OUTPUT ARRAY OBJECT (CALL THIS BEFORE INI)
 dig_output_array *NEW_dig_output_array(uint8_t array_size) {
 
 	int8_t i;
@@ -107,24 +147,6 @@ dig_output_array *NEW_dig_output_array(uint8_t array_size) {
 
 	return me;
 }
-
-// THIS FUNCTION SETS UP THE PIN AS A DIGITAL INPUT AND SETS THE PURPOSE OF THE SOFTWARE REPRESENTATION OF THIS PIN ACCORDINGLY
-void dig_input_initialize(dig_input *me, uint8_t pin_number) {
-
-	connect_PIN(&physical_pins[pin_number], &me->connected);
-
-	assign_purpose_PIN(&physical_pins[pin_number], _INPUT);
-
-	*physical_pins[pin_number].registers->r_ddr &= ~(1 << physical_pins[pin_number].channel);		// set pin as input
-	*physical_pins[pin_number].registers->r_port |= (1 << physical_pins[pin_number].channel);		// enable pull up resistor
-
-	physical_pins[pin_number].prev_state = status_dig_input(me);
-
-	me->pin = &physical_pins[pin_number];
-
-	return;
-}
-
 // THIS FUNCTION SETS UP THE PIN AS A DIGITAL OUTPUT AND SETS THE PURPOSE OF THE SOFTWARE REPRESENTATION OF THIS PIN ACCORDINGLY
 void dig_output_initialize(dig_output *me, uint8_t pin_number) {
 
@@ -139,34 +161,7 @@ void dig_output_initialize(dig_output *me, uint8_t pin_number) {
 
 	return;
 }
-
-// FREES MEMEORY ALLOCATED FOR DIG_INPUT (PREVENTS LEAKS)
-void dig_input_destructor(dig_input *me) {
-
-	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-		free(me->pin);
-		free(me);
-	}
-
-	return;
-}
-
-// FREES MEMEORY ALLOCATED FOR DIG INPUT ARRAY (PREVENTS LEAKS)
-void dig_input_array_destructor(dig_input_array *me) {
-
-	int8_t i;
-
-	for (i = 0; i < me->num_elements; i++)
-		dig_input_destructor(me->elements[i]);
-
-	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-		free(me->elements);
-		free(me);
-	}
-
-	return;
-}
-
+// FREES MEMEORY ALLOCATED FOR DIG OUTPUT (PREVENTS LEAKS)
 void dig_output_destructor(dig_output *me) {
 
 	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
@@ -176,7 +171,7 @@ void dig_output_destructor(dig_output *me) {
 
 	return;
 }
-
+// FREES MEMEORY ALLOCATED FOR DIG OUTPUT ARRAY (PREVENTS LEAKS)
 void dig_output_array_destructor(dig_output_array *me) {
 
 	int8_t i;
@@ -191,13 +186,11 @@ void dig_output_array_destructor(dig_output_array *me) {
 
 	return;
 }
-
 // RETURNS THE STATUS OF THE SPECIFIED PIN (ASSUMES PIN IS INPUT)
 uint8_t status_dig_input(dig_input *me) {
 
 	return (uint8_t)((*me->pin->registers->r_pin & (1 << me->pin->channel)) == 0);			// return 0 if high (no input) and 1 if low (input) because of pull up
 }
-
 // CHECKS FOR RISING EDGE AND RETURNS BOOLEAN
 uint8_t rising_edge_dig_input(dig_input *me) {
 
@@ -215,7 +208,6 @@ uint8_t rising_edge_dig_input(dig_input *me) {
 
 	return 0;													// return 0 (false) if dig_input state if state did not go from high to low
 }
-
 // CHECKS FOR FALLING EDGE AND RETURNS BOOLEAN
 uint8_t falling_edge_dig_input(dig_input *me) {
 
@@ -233,7 +225,6 @@ uint8_t falling_edge_dig_input(dig_input *me) {
 
 	return 0;													// return 0 (false) if dig_input state if state did not go from low to high
 }
-
 // CHECKS FOR ANY CHANGE IN THE SPECIFIED PINS STATUS AND RETURNS BOOLEAN
 uint8_t on_change_dig_input(dig_input *me) {
 
@@ -248,7 +239,6 @@ uint8_t on_change_dig_input(dig_input *me) {
 
 	return 0;													// return 0 (false) if dig_input state if state did not go from low to high
 }
-
 // CHECKS STATUS OF DIG INPUT ARRAY AND RETURNS 8-BIT CODED RESULT
 uint8_t status_dig_input_array(dig_input_array *me) {
 
@@ -262,7 +252,6 @@ uint8_t status_dig_input_array(dig_input_array *me) {
 
 	return status;
 }
-
 // CHECKS DIG INPUT ARRAY FOR ANY CHANGES IN STATUS OF DIG INPUT ELEMENTS
 uint8_t on_change_dig_input_array(dig_input_array *me) {
 
@@ -279,7 +268,6 @@ uint8_t on_change_dig_input_array(dig_input_array *me) {
 
 	return 0;													// return 0 (false) if dig input array val did not change
 }
-
 // Encodes the binary number read in from the dig input switches into a binary number that will display that many leds
 uint8_t encode_dig_input_array(dig_input_array *me) {
 
@@ -296,7 +284,6 @@ uint8_t encode_dig_input_array(dig_input_array *me) {
 
 	return result;
 }
-
 // TOGGLES THE OUTPUT OF THE SPECIFIED PIN
 void toggle_dig_output(dig_output *me) {
 
@@ -304,7 +291,6 @@ void toggle_dig_output(dig_output *me) {
 
 	return;
 }
-
 // SETS THE OUTPUT OF THE SPECIFIED PIN
 void set_dig_output(dig_output *me) {
 
@@ -312,7 +298,6 @@ void set_dig_output(dig_output *me) {
 
 	return;
 }
-
 // CLEARS THE OUTPUT OF THE SPECIFIED PIN
 void clr_dig_output(dig_output *me) {
 
@@ -320,13 +305,12 @@ void clr_dig_output(dig_output *me) {
 
 	return;
 }
-
 // RETURNS THE STATUS OF THE SPECIFIED PIN (ASSUMES PIN IS OUTPUT)
 uint8_t status_dig_output(dig_output *me) {
 
 	return (uint8_t)((*me->pin->registers->r_port & (1 << me->pin->channel)) != 0);			//return 0 if low 2^channel if high (evaluates true or false)
 }
-
+// SETS ALL OF THE DIG OUTPUTS IN THE DIG OUTPUT ARRAY HIGH
 void set_dig_output_array(dig_output_array *me) {
 
 	int8_t i;
@@ -336,7 +320,7 @@ void set_dig_output_array(dig_output_array *me) {
 
 	return;
 }
-
+// CLEARS ALL THE BITS OF THE DIGITAL OUTPUT ARRAY
 void clr_dig_output_array(dig_output_array *me) {
 
 	int8_t i;
@@ -346,7 +330,7 @@ void clr_dig_output_array(dig_output_array *me) {
 
 	return;
 }
-
+// INCREMENTS THE VAL PROPERTY OF THE DIGITAL OUTPUT ARRAY AND UPDATES THE HARDWARE IO TO MATCH
 void increment_dig_output_array(dig_output_array *me) {
 
 	me->val += (1 << 0);
@@ -355,7 +339,7 @@ void increment_dig_output_array(dig_output_array *me) {
 
 	return;
 }
-
+// DECREMENTS THE VAL PROPERTY OF THE DIGITAL OUTPUT ARRAY AND UPDATES THE HARDWARE IO TO MATCH
 void decrement_dig_output_array(dig_output_array *me) {
 
 	me->val -= (1 << 0);
@@ -364,7 +348,7 @@ void decrement_dig_output_array(dig_output_array *me) {
 
 	return;
 }
-
+// RETURNS THE ACTUAL HARDWARE IO STATES IN BINARY AS A PACKED 8 BIT INTEGER
 uint8_t status_dig_output_array(dig_output_array *me) {
 
 	int8_t i;
@@ -379,7 +363,7 @@ uint8_t status_dig_output_array(dig_output_array *me) {
 
 	return status;
 }
-
+// UPDATES THE VAL PROPERTY OF THE OUTPUT ARRAY AND UPDATES THE HARDWARE IO
 void configure_dig_output_array(dig_output_array *me, uint8_t new_val) {
 
 	me->val = new_val;
@@ -387,7 +371,7 @@ void configure_dig_output_array(dig_output_array *me, uint8_t new_val) {
 
 	return;
 }
-
+// UPDATES THE HARDWARE IO TO MATCH THE CURRENT VAL PROPERTY
 void update_dig_output_array(dig_output_array *me) {
 
 	int8_t i;
